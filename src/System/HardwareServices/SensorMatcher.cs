@@ -154,6 +154,12 @@ namespace LiteMonitor.src.SystemServices
                 }
                 if (s.SensorType == SensorType.Voltage) return "BAT.Voltage";
                 if (s.SensorType == SensorType.Current) return "BAT.Current";
+                if (s.SensorType == SensorType.Energy)
+                {
+                    // [Fix] 暴露容量传感器，供 BatteryService 在放电率读数缺失时做差分反推
+                    if (Has(name, "remaining")) return "BAT.RemainCap";
+                    if (Has(name, "fully") || Has(name, "charged")) return "BAT.FullCap";
+                }
             }
 
             return null;
