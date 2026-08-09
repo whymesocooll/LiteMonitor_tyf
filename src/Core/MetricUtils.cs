@@ -320,6 +320,13 @@ namespace LiteMonitor.src.Core
         public static int GetState(string key, double value)
         {
             if (double.IsNaN(value)) return STATE_SAFE;
+
+            // [New] 电池功耗颜色约定：充电 (>=0) 显示绿色，放电 (<0) 显示红色
+            if (key.Equals("BAT.Power", StringComparison.OrdinalIgnoreCase))
+            {
+                return value < 0 ? STATE_CRIT : STATE_SAFE;
+            }
+
             if (key.StartsWith("BAT", StringComparison.OrdinalIgnoreCase) && value < 0) return STATE_SAFE;
 
             var type = GetType(key);
