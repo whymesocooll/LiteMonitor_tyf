@@ -33,6 +33,7 @@ It supports horizontal/vertical display, multiple languages, theme switching, tr
 | 💾 **Memory** | RAM usage overview in percentage. |
 | 📀 **Disk** | Read/Write throughput (KB/s, MB/s). Auto/manual disk selection supported. |
 | 🌐 **Network** | Upload/Download speed with adaptive unit formatting. Auto/manual NIC selection supported. |
+| 🔌 **Plugins** | Weather, stocks, crypto, proxy latency, exchange rates, public IP location, and custom JSON plugins. |
 
 ---
 
