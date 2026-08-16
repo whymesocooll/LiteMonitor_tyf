@@ -168,26 +168,15 @@ namespace LiteMonitor
                 new MonitorItemConfig { Key = "CPU.Load",  SortIndex = 201, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "CPU.Temp",  SortIndex = 202, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "CPU.Clock", SortIndex = 203, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "CPU.Power", SortIndex = 204, VisibleInPanel = false },
-                // [New] CPU Voltage
-                new MonitorItemConfig { Key = "CPU.Voltage", SortIndex = 205, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "CPU.Fan",   SortIndex = 206, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "CPU.Pump",  SortIndex = 207, VisibleInPanel = false },
 
                 // [3xx] GPU
                 new MonitorItemConfig { Key = "GPU.Load",  SortIndex = 301, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "GPU.Temp",  SortIndex = 302, VisibleInPanel = true },
-                new MonitorItemConfig { Key = "GPU.Clock", SortIndex = 303, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "GPU.Power", SortIndex = 304, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "GPU.Fan",   SortIndex = 305, VisibleInPanel = false },
                 new MonitorItemConfig { Key = "GPU.VRAM",  SortIndex = 306, VisibleInPanel = true },
 
-                // [4xx] HOST (MEM, FPS, MOBO, DISK Temp, CASE Fan)
+                // [4xx] HOST (MEM, FPS)
                 new MonitorItemConfig { Key = "MEM.Load",  SortIndex = 401, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "FPS",       SortIndex = 402, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "MOBO.Temp", SortIndex = 403, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "DISK.Temp", SortIndex = 404, VisibleInPanel = false },
-                new MonitorItemConfig { Key = "CASE.Fan",  SortIndex = 405, VisibleInPanel = false },
                 
                 // [5xx] BATTERY (New Group)
                 new MonitorItemConfig { Key = "BAT.Percent", SortIndex = 501, VisibleInPanel = false, VisibleInTaskbar = false },
