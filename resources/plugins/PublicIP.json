@@ -2,21 +2,33 @@
   "id": "PublicIP",
   "meta": {
     "name": "公网IP显示",
-    "version": "1.0",
+    "version": "1.2",
     "author": "LiteMonitor",
-    "description": "公网IP插件，获取当前网络的公网IPv4地址"
+    "description": "公网IP插件，获取当前网络的公网IPv4地址及IP归属地，支持本地代理"
   },
-  "inputs": [],
+  "inputs": [
+    {
+      "key": "proxy_server",
+      "label": "本地代理地址",
+      "type": "text",
+      "default": "127.0.0.1:12450",
+      "placeholder": "留空则直连",
+      "scope": "global"
+    }
+  ],
   "execution": {
     "type": "chain",
-    "interval": 600,
+    "interval": 10,
+    "min_interval": 10,
     "steps": [
       {
         "id": "get_ip",
         "url": "https://whois.pconline.com.cn/ipJson.jsp?json=true",
+        "proxy": "{{proxy_server}}",
         "response_encoding": "gbk",
         "extract": {
-          "ip": "ip"
+          "ip": "ip",
+          "addr": "addr"
         }
       }
     ]
@@ -27,6 +39,13 @@
       "label": "公网IP",
       "short_label": " ",
       "format_val": "{{ip}}",
+      "unit": ""
+    },
+    {
+      "key": "loc",
+      "label": "当前IP归属地",
+      "short_label": "IP",
+      "format_val": "{{addr}}",
       "unit": ""
     }
   ]
