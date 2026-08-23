@@ -417,6 +417,7 @@ namespace LiteMonitor.src.Core
             else if (key == "CPU.Power") max = cfg.RecordedMaxCpuPower;
             else if (key == "GPU.Clock") max = cfg.RecordedMaxGpuClock;
             else if (key == "GPU.Power") max = cfg.RecordedMaxGpuPower;
+            else if (key == "SYS.Power") max = cfg.RecordedMaxCpuPower + cfg.RecordedMaxGpuPower;
             else if (key == "CPU.Fan") max = cfg.RecordedMaxCpuFan;
             else if (key == "CPU.Pump") max = cfg.RecordedMaxCpuPump;
             else if (key == "CASE.Fan") max = cfg.RecordedMaxChassisFan;

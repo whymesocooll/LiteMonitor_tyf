@@ -172,11 +172,12 @@ namespace LiteMonitor
                 // [3xx] GPU
                 new MonitorItemConfig { Key = "GPU.Load",  SortIndex = 301, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "GPU.Temp",  SortIndex = 302, VisibleInPanel = true },
+                new MonitorItemConfig { Key = "GPU.Clock", SortIndex = 303, VisibleInPanel = true },
                 new MonitorItemConfig { Key = "GPU.VRAM",  SortIndex = 306, VisibleInPanel = true },
 
                 // [4xx] HOST (MEM, FPS)
                 new MonitorItemConfig { Key = "SYS.Power",  SortIndex = 350, VisibleInPanel = true, VisibleInTaskbar = true },
-                 new MonitorItemConfig { Key = "MEM.Load",  SortIndex = 401, VisibleInPanel = true, VisibleInTaskbar = true },
+                new MonitorItemConfig { Key = "MEM.Load",  SortIndex = 401, VisibleInPanel = true, VisibleInTaskbar = true },
                 new MonitorItemConfig { Key = "FPS",       SortIndex = 402, VisibleInPanel = false },
                 
                 // [5xx] BATTERY (New Group)
