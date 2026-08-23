@@ -30,6 +30,10 @@ namespace LiteMonitor.src.SystemServices
         public IHardware? CachedGpu { get; private set; }
         // ★★★ [新增] 缓存总线传感器 (用于 Zen 5 频率修正) ★★★
         public ISensor? CpuBusSpeedSensor { get; private set; }
+        // ★★★ [SYS.Power] 非 CPU/GPU 的其它可读功耗传感器 (主板/内存/存储/网络等) ★★★
+        public List<ISensor> SystemPowerSensors { get; private set; } = new();
+        // ★★★ [SYS.Power] PSU 总功耗传感器 (HID 电源, 台式机): 本身就是整机功耗 ★★★
+        public ISensor? PsuTotalPowerSensor { get; private set; }
 
         private DateTime _lastMapBuild = DateTime.MinValue;
         
@@ -58,6 +62,8 @@ namespace LiteMonitor.src.SystemServices
                 CpuCoreCache.Clear();
                 CachedGpu = null;
                 CpuBusSpeedSensor = null;
+                SystemPowerSensors = new List<ISensor>();
+                PsuTotalPowerSensor = null;
                 // _lastSensorFingerprint = 0; // 已移除
             }
         }
@@ -215,6 +221,43 @@ namespace LiteMonitor.src.SystemServices
             // 按优先级排序并注册
             var ordered = computer.Hardware.OrderBy(h => HardwareRules.GetHwPriority(h));
             foreach (var hw in ordered) RegisterTo(hw);
+
+            // ============================================
+            // ★★★ [SYS.Power] 收集其它可读功耗传感器 ★★★
+            // 主板/内存/存储/网络等硬件上的 Power 传感器，用于整机功耗组件求和；
+            // PSU (HID 电源) 的功耗传感器本身就是整机功耗，单独标记为权威来源。
+            // 注意：CPU/GPU/电池 的功耗走各自独立路径，这里必须排除避免重复计数。
+            // ============================================
+            var extraPower = new List<ISensor>();
+            ISensor? psuPower = null;
+
+            void CollectPowerSensors(IHardware hw)
+            {
+                if (hw.HardwareType == HardwareType.Cpu ||
+                    hw.HardwareType == HardwareType.Battery ||
+                    HardwareScanner.IsGpuHardware(hw))
+                {
+                    return;
+                }
+
+                foreach (var s in hw.Sensors)
+                {
+                    if (s.SensorType != SensorType.Power) continue;
+
+                    if (hw.HardwareType == HardwareType.Psu)
+                    {
+                        // 优先选择 Total 总功耗传感器
+                        if (psuPower == null) psuPower = s;
+                        else if (HardwareRules.Has(s.Name, "total")) psuPower = s;
+                        continue;
+                    }
+
+                    extraPower.Add(s);
+                }
+
+                foreach (var sub in hw.SubHardware) CollectPowerSensors(sub);
+            }
+            foreach (var hw in ordered) CollectPowerSensors(hw);
             
             // ============================================
             // ★★★ [新增] 智能匹配逻辑 ★★★
@@ -288,6 +331,8 @@ namespace LiteMonitor.src.SystemServices
                 CpuCoreCache = newCpuCache;
                 CachedGpu = newGpu;
                 CpuBusSpeedSensor = newBusSensor; // ★ 更新 Bus Sensor 缓存
+                SystemPowerSensors = extraPower;
+                PsuTotalPowerSensor = psuPower;
                 
                 _lastMapBuild = DateTime.Now;
                 // ★★★ [优化 3] 指纹记录已移除 ★★★

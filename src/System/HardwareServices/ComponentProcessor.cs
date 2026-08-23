@@ -111,6 +111,11 @@ namespace LiteMonitor.src.SystemServices
         /// </summary>
         public float? GetCompositeValue(string key, Dictionary<string, ISensor> sensorCache)
         {
+            if (key == "SYS.Power")
+            {
+                return GetSystemPower(sensorCache);
+            }
+
             if (key == "CPU.Clock")
             {
                 if (_sensorMap.CpuCoreCache.Count == 0) return null;
@@ -180,6 +185,77 @@ namespace LiteMonitor.src.SystemServices
                 }
             }
             return null;
+        }
+
+        /// <summary>
+        /// [SYS.Power] 整机功耗估算：权威源优先，尽量把能读到的功耗都纳入。
+        /// 优先级：
+        ///   1. 电池放电中 → 放电功率 = 整机直流功耗 (含屏幕/主板/内存等，最接近真实整机功耗)；
+        ///   2. PSU 总功耗传感器 (HID 电源，台式机) → 本身就是整机功耗；
+        ///   3. 组件求和 → CPU.Power + GPU.Power + 其它可读功耗传感器 (主板/内存/存储等)。
+        /// 避免重复计数：CPU/GPU/电池功耗不参与组件求和，电池只在放电时作为权威源。
+        /// </summary>
+        private float? GetSystemPower(Dictionary<string, ISensor> sensorCache)
+        {
+            // 1. 电池放电中：放电功率即整机功耗 (BAT.Power 约定: 放电为负, 插电为正)
+            if (!MetricUtils.GetPowerStatus().AcOnline)
+            {
+                float? bat = BatteryService.GetBatteryValue("BAT.Power", sensorCache);
+                if (bat.HasValue && bat.Value < 0f && float.IsFinite(bat.Value))
+                {
+                    float batPower = -bat.Value;
+                    // 合理性区间 (0.5W ~ 500W)，防止 EC 误报污染整机功耗
+                    if (batPower >= 0.5f && batPower <= 500f)
+                    {
+                        float? components = SumComponentPower(sensorCache);
+                        float result = components.HasValue ? Math.Max(batPower, components.Value) : batPower;
+                        _cfg.UpdateMaxRecord("SYS.Power", result);
+                        return result;
+                    }
+                }
+            }
+
+            // 2. PSU 总功耗传感器 (台式机 HID 电源)：本身就是整机功耗
+            var psu = _sensorMap.PsuTotalPowerSensor;
+            if (psu != null && psu.Value.HasValue && float.IsFinite(psu.Value.Value) &&
+                psu.Value.Value >= 1f && psu.Value.Value <= 1000f)
+            {
+                float? components = SumComponentPower(sensorCache);
+                float result = components.HasValue ? Math.Max(psu.Value.Value, components.Value) : psu.Value.Value;
+                _cfg.UpdateMaxRecord("SYS.Power", result);
+                return result;
+            }
+
+            // 3. 组件求和兜底
+            return SumComponentPower(sensorCache);
+        }
+
+        /// <summary>
+        /// [SYS.Power] 组件求和：CPU + GPU + 其它可读功耗传感器。
+        /// 只累加有效值；全部缺失时返回 null (而非 0)，与现有缺失语义一致。
+        /// </summary>
+        private float? SumComponentPower(Dictionary<string, ISensor> sensorCache)
+        {
+            float total = 0f;
+            bool has = false;
+
+            float? cpu = GetCompositeValue("CPU.Power", sensorCache);
+            if (cpu.HasValue) { total += cpu.Value; has = true; }
+
+            float? gpu = GetCompositeValue("GPU.Power", sensorCache);
+            if (gpu.HasValue) { total += gpu.Value; has = true; }
+
+            // 其它硬件 (主板/内存/存储/网络等) 的功耗传感器：单项上限 200W 防异常值
+            foreach (var s in _sensorMap.SystemPowerSensors)
+            {
+                if (s.Value.HasValue && float.IsFinite(s.Value.Value) && s.Value.Value >= 0f && s.Value.Value <= 200f)
+                {
+                    total += s.Value.Value;
+                    has = true;
+                }
+            }
+
+            return has && total <= 1000f ? total : null;
         }
     }
 }
