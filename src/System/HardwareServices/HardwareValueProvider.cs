@@ -290,19 +290,19 @@ namespace LiteMonitor.src.SystemServices
                 // ★★★ [终极优化] 使用 switch 替代 if-else 链，实现 O(1) 哈希跳转 ★★★
                 switch (key)
                 {
-                    // 1. 整机功耗估算：只组合已有的 CPU/GPU 功耗值，不重复扫描硬件
+                    // 1. 整机功耗估算：复用已有 CPU/GPU 取值路径，不直接触碰传感器对象
                     case "SYS.Power":
                         float totalPower = 0f;
                         bool hasPower = false;
 
-                        var cpuPower = _componentProcessor.GetCompositeValue("CPU.Power", _manualSensorCache);
+                        var cpuPower = GetValue("CPU.Power");
                         if (cpuPower.HasValue && float.IsFinite(cpuPower.Value) && cpuPower.Value >= 0f)
                         {
                             totalPower += cpuPower.Value;
                             hasPower = true;
                         }
 
-                        var gpuPower = _componentProcessor.GetCompositeValue("GPU.Power", _manualSensorCache);
+                        var gpuPower = GetValue("GPU.Power");
                         if (gpuPower.HasValue && float.IsFinite(gpuPower.Value) && gpuPower.Value >= 0f)
                         {
                             totalPower += gpuPower.Value;
