@@ -77,8 +77,10 @@ namespace LiteMonitor.src.UI.Helpers
             try
             {
                 // Win10+ 有效的刷新命令，不需要重启 Explorer
-                Process.Start(new ProcessStartInfo("ie4uinit.exe", "-show") { CreateNoWindow = true, UseShellExecute = false });
-                
+                var psi = new ProcessStartInfo("ie4uinit.exe") { CreateNoWindow = true, UseShellExecute = false };
+                psi.ArgumentList.Add("-show");
+                Process.Start(psi);
+
                 // 通知系统关联已改变，强制刷新图标
                 NotifyShellUpdate();
             }
@@ -152,7 +154,7 @@ namespace LiteMonitor.src.UI.Helpers
         {
             try
             {
-                Process.Start(new ProcessStartInfo("taskmgr") { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo { FileName = "taskmgr", UseShellExecute = true });
             }
             catch (Exception ex)
             {
@@ -168,14 +170,17 @@ namespace LiteMonitor.src.UI.Helpers
             try
             {
                 // 使用 cmd 组合命令避免中间出现太长时间的黑屏
-                Process.Start(new ProcessStartInfo
+                // 参数走 ArgumentList，不拼字符串；cmd /c 后整段作为单参数由其自行解析
+                var psi = new ProcessStartInfo
                 {
                     FileName = "cmd.exe",
-                    Arguments = "/c taskkill /f /im explorer.exe & start explorer.exe",
                     CreateNoWindow = true,
                     UseShellExecute = false,
                     WindowStyle = ProcessWindowStyle.Hidden
-                });
+                };
+                psi.ArgumentList.Add("/c");
+                psi.ArgumentList.Add("taskkill /f /im explorer.exe & start explorer.exe");
+                Process.Start(psi);
             }
             catch (Exception ex)
             {
@@ -226,13 +231,19 @@ namespace LiteMonitor.src.UI.Helpers
         }
 
         /// <summary>
-        /// 打开 URL
+        /// 打开 URL（仅允许 http/https，防止其它 scheme 被 Shell 拉起）
         /// </summary>
         public static void OpenUrl(string url)
         {
             try
             {
-                Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
+                    (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+                {
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
             }
             catch (Exception ex)
             {
@@ -248,15 +259,21 @@ namespace LiteMonitor.src.UI.Helpers
         {
             try
             {
+                var psi = new ProcessStartInfo("shutdown") { CreateNoWindow = true, UseShellExecute = false };
+
                 if (seconds <= 0)
                 {
-                    Process.Start(new ProcessStartInfo("shutdown", "-a") { CreateNoWindow = true, UseShellExecute = false });
+                    psi.ArgumentList.Add("-a");
                     // MessageBox.Show("已取消定时关机"); // 可选提示
                 }
                 else
                 {
-                    Process.Start(new ProcessStartInfo("shutdown", $"-s -t {seconds}") { CreateNoWindow = true, UseShellExecute = false });
+                    psi.ArgumentList.Add("-s");
+                    psi.ArgumentList.Add("-t");
+                    psi.ArgumentList.Add(seconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
                 }
+
+                Process.Start(psi);
             }
             catch (Exception ex)
             {

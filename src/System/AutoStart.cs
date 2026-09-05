@@ -46,13 +46,19 @@ namespace LiteMonitor.src.SystemServices
                     // /F: 强制覆盖
                     // /TN: 任务名
                     // /XML: 指定配置文件
+                    // 参数逐项加入 ArgumentList，由框架负责加引号，避免手工拼接
                     var startInfo = new ProcessStartInfo
                     {
                         FileName = "schtasks.exe",
-                        Arguments = $"/Create /TN \"{TaskName}\" /XML \"{tempXmlPath}\" /F",
                         CreateNoWindow = true,
                         UseShellExecute = false // 必须为 false 才能配合 CreateNoWindow 隐藏窗口
                     };
+                    startInfo.ArgumentList.Add("/Create");
+                    startInfo.ArgumentList.Add("/TN");
+                    startInfo.ArgumentList.Add(TaskName);
+                    startInfo.ArgumentList.Add("/XML");
+                    startInfo.ArgumentList.Add(tempXmlPath);
+                    startInfo.ArgumentList.Add("/F");
                     
                     using (var p = Process.Start(startInfo))
                     {
@@ -83,10 +89,13 @@ namespace LiteMonitor.src.SystemServices
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "schtasks.exe",
-                    Arguments = $"/Delete /TN \"{TaskName}\" /F",
                     CreateNoWindow = true,
                     UseShellExecute = false
                 };
+                startInfo.ArgumentList.Add("/Delete");
+                startInfo.ArgumentList.Add("/TN");
+                startInfo.ArgumentList.Add(TaskName);
+                startInfo.ArgumentList.Add("/F");
                 using (var p = Process.Start(startInfo))
                 {
                     p?.WaitForExit();
@@ -98,10 +107,13 @@ namespace LiteMonitor.src.SystemServices
         {
             try
             {
-                var psi = new ProcessStartInfo("schtasks", $"/Query /TN \"{TaskName}\"")
+                var psi = new ProcessStartInfo("schtasks")
                 {
                     CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true
                 };
+                psi.ArgumentList.Add("/Query");
+                psi.ArgumentList.Add("/TN");
+                psi.ArgumentList.Add(TaskName);
                 using (var p = Process.Start(psi))
                 {
                     if (p == null) return false;
@@ -116,12 +128,16 @@ namespace LiteMonitor.src.SystemServices
         {
             try
             {
-                var psi = new ProcessStartInfo("schtasks", $"/Query /TN \"{TaskName}\" /XML")
+                var psi = new ProcessStartInfo("schtasks")
                 {
                     CreateNoWindow = true,
                     UseShellExecute = false,
                     RedirectStandardOutput = true
                 };
+                psi.ArgumentList.Add("/Query");
+                psi.ArgumentList.Add("/TN");
+                psi.ArgumentList.Add(TaskName);
+                psi.ArgumentList.Add("/XML");
 
                 using (var p = Process.Start(psi))
                 {
