@@ -256,12 +256,7 @@ namespace LiteMonitor.src.Core
                     throw new FileNotFoundException("Theme json not found", path);
 
                 var json = File.ReadAllText(path);
-                var theme = JsonSerializer.Deserialize<Theme>(json, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true,
-                    IgnoreReadOnlyProperties = true,
-                    AllowTrailingCommas = true
-                });
+                var theme = JsonSerializer.Deserialize<Theme>(json, Json.Theme);
 
                 if (theme == null)
                     throw new Exception("Theme parse failed.");

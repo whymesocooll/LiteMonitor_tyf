@@ -55,7 +55,10 @@ namespace LiteMonitor.src.SystemServices
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Warn($"全局内存清理未完成: {ex.Message}");
+            }
             onProgress?.Invoke(100);
         }
 
@@ -69,7 +72,7 @@ namespace LiteMonitor.src.SystemServices
                 using var proc = Process.GetCurrentProcess();
                 EmptyWorkingSet(proc.Handle);
             }
-            catch { }
+            catch (Exception ex) { Log.Debug($"TrimWorkingSet 失败: {ex.Message}"); }
         }
 
         /// <summary>
@@ -97,12 +100,12 @@ namespace LiteMonitor.src.SystemServices
                 {
                     using var proc = Process.GetCurrentProcess();
                     // 阈值 30MB，确保极致轻量
-                    if (proc.WorkingSet64 > 30 * 1024 * 1024) 
+                    if (proc.WorkingSet64 > 30 * 1024 * 1024)
                     {
                         EmptyWorkingSet(proc.Handle);
                     }
                 }
-                catch { }
+                catch (Exception ex) { Log.Debug($"定期内存清理失败: {ex.Message}"); }
             }
         }
     }

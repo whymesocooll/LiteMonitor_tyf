@@ -198,7 +198,13 @@ namespace LiteMonitor.src.Plugins
         
         private string GetConfigHash(PluginInstanceConfig inst)
         {
-            try { return JsonSerializer.Serialize(inst); } catch { return ""; }
+            try { return JsonSerializer.Serialize(inst); }
+            catch (Exception ex)
+            {
+                // 返回空串会让下次比对误判为“配置已变化”，需留痕
+                Log.Warn($"插件配置序列化失败 ({inst.Id}): {ex.Message}");
+                return "";
+            }
         }
 
         private void StopInstance(string instanceId)

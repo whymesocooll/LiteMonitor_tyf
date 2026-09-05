@@ -183,8 +183,7 @@ namespace LiteMonitor.src.UI.SettingsPage
             // 3. 数据变了（例如在插件页添加了新项），执行全量加载
             try
             {
-                var json = JsonSerializer.Serialize(Config.MonitorItems);
-                _workingList = JsonSerializer.Deserialize<List<MonitorItemConfig>>(json) ?? new List<MonitorItemConfig>();
+                _workingList = Json.Clone(Config.MonitorItems) ?? new List<MonitorItemConfig>();
 
                 var liveMap = Config.MonitorItems.ToDictionary(x => x.Key, x => x);
                 foreach (var item in _workingList)

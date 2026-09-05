@@ -110,10 +110,9 @@ namespace LiteMonitor.src.Core
 
         private static string SerializeSnapshot()
         {
-            var opt = new JsonSerializerOptions { WriteIndented = true };
             lock (_dataLock)
             {
-                return JsonSerializer.Serialize(CloneDataUnsafe(), opt);
+                return JsonSerializer.Serialize(CloneDataUnsafe(), Json.Indented);
             }
         }
 

@@ -53,15 +53,13 @@ namespace LiteMonitor.src.Core.Actions
                 if (p.Name == "PluginInstances")
                 {
                     // 使用 JSON 序列化进行深拷贝，断开引用
-                    var json = System.Text.Json.JsonSerializer.Serialize(draft.PluginInstances);
-                    live.PluginInstances = System.Text.Json.JsonSerializer.Deserialize<List<PluginInstanceConfig>>(json) ?? new List<PluginInstanceConfig>();
+                    live.PluginInstances = Json.Clone(draft.PluginInstances) ?? new List<PluginInstanceConfig>();
                     continue;
                 }
                 if (p.Name == "Thresholds")
                 {
                     // 阈值是 Class 类型 (ThresholdsSet)，必须深拷贝
-                    var json = System.Text.Json.JsonSerializer.Serialize(draft.Thresholds);
-                    live.Thresholds = System.Text.Json.JsonSerializer.Deserialize<ThresholdsSet>(json) ?? new ThresholdsSet();
+                    live.Thresholds = Json.Clone(draft.Thresholds) ?? new ThresholdsSet();
                     continue;
                 }
                 // 3. 特殊处理字典类型
@@ -90,9 +88,7 @@ namespace LiteMonitor.src.Core.Actions
 
             // ★★★ 1. 深拷贝 Draft 列表，断开引用 ★★★
             // 防止修改 Draft 属性时直接影响 Live 对象
-            var json = System.Text.Json.JsonSerializer.Serialize(workingList);
-            var safeWorkingList = System.Text.Json.JsonSerializer.Deserialize<List<MonitorItemConfig>>(json) 
-                                  ?? new List<MonitorItemConfig>();
+            var safeWorkingList = Json.Clone(workingList) ?? new List<MonitorItemConfig>();
 
             // ★★★ 2. 恢复运行时状态 (Dynamic Labels) ★★★
             // 因为 JSON 序列化丢失了 [JsonIgnore] 的属性，需要从 Live 对象中恢复它们
@@ -134,9 +130,7 @@ namespace LiteMonitor.src.Core.Actions
 
             // 1. 通过序列化进行深拷贝，断开引用关联
             // 注意：这会丢失 [JsonIgnore] 的动态属性
-            var json = System.Text.Json.JsonSerializer.Serialize(live.MonitorItems);
-            var newItems = System.Text.Json.JsonSerializer.Deserialize<List<MonitorItemConfig>>(json) 
-                           ?? new List<MonitorItemConfig>();
+            var newItems = Json.Clone(live.MonitorItems) ?? new List<MonitorItemConfig>();
 
             // 2. 恢复动态属性 (Runtime State)
             // 因为 Draft 是给 UI 用的，必须包含当前的显示名称

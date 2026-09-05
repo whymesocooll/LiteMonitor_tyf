@@ -145,9 +145,9 @@ namespace LiteMonitor
                 {
                     try
                     {
-                        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
                         var sw = Stopwatch.StartNew();
-                        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+                        using var response = await HttpProvider.Default.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token);
                         sw.Stop();
                         return response.IsSuccessStatusCode ? (url, sw.ElapsedMilliseconds) : (url, long.MaxValue);
                     }

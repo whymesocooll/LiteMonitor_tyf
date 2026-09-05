@@ -334,7 +334,8 @@ namespace LiteMonitor.src.UI.Helpers
 
         public async void CleanMemory()
         {
-            try { using (var form = new CleanMemoryForm()) await form.StartCleaningAsync(); } catch { }
+            try { using (var form = new CleanMemoryForm()) await form.StartCleaningAsync(); }
+            catch (Exception ex) { Log.Error("内存清理流程失败", ex); }
         }
 
         // =================================================================
@@ -359,7 +360,10 @@ namespace LiteMonitor.src.UI.Helpers
                     Core.Actions.AppActions.ApplyWindowAttributes(_cfg, (MainForm)_form);
                 }));
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Error("启动检查流程失败 (驱动/更新检查被跳过)", ex);
+            }
         }
 
         private void CheckUpdateSuccess()

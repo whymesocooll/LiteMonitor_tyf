@@ -52,11 +52,8 @@
 	
 <ItemGroup>
   <Compile Remove="LiteMonitor.Updater\**" />
-  <Compile Remove="LiteMonitor.Wpf\**" />
   <EmbeddedResource Remove="LiteMonitor.Updater\**" />
-  <EmbeddedResource Remove="LiteMonitor.Wpf\**" />
   <None Remove="LiteMonitor.Updater\**" />
-  <None Remove="LiteMonitor.Wpf\**" />
 </ItemGroup>
 	
 <!-- 引入文件资源管理 -->
@@ -66,15 +63,10 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-  </ItemGroup>
-<!-- 引入文件资源管理 -->
-  <ItemGroup>
+  </ItemGroup>  <ItemGroup>
     <EmbeddedResource Update="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="src\UI\Settings\" />
   </ItemGroup>
 </Project>

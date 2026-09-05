@@ -36,7 +36,7 @@ namespace LiteMonitor.src.SystemServices
         private readonly Dictionary<string, float> _lastValidMap = new();
         
         // 状态标记 (防止并发重载)
-        private volatile bool _isReloading = false;
+        private int _isReloading = 0; // 0=空闲 1=重载中 (Interlocked 操作)
         private volatile bool _isOpening = false;
 
         // 计时器相关
@@ -48,8 +48,8 @@ namespace LiteMonitor.src.SystemServices
 
         #region Public Properties
         // [新增] 允许 UI 层访问原始硬件树（用于硬件信息面板）
+        // 注意：内部锁不对外导出，外部请使用 ListAllFans()/ListAllMoboTemps() 等已加锁的静态方法
         public IComputer ComputerInstance => _computer;
-        public object SyncLock => _lock;
         #endregion
 
         #region Constructor
@@ -250,20 +250,23 @@ namespace LiteMonitor.src.SystemServices
                 
                 // 任务错峰执行 (调用 SystemOptimizer)
                 SystemOptimizer.RunMaintenanceTasks(_secondsCounter);
-                
+
                 OnValuesUpdated?.Invoke();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Error("UpdateAll 轮询失败，本轮数据可能缺失", ex);
+            }
 
             // [Fix #290] 硬件故障自动恢复
             // 如果检测到 GPU 丢失或驱动崩溃，触发安全重载以刷新硬件列表
-            if (needsReload && !_isReloading)
+            // Interlocked 保证多轮 Tick 并发时只有一个重载被触发
+            if (needsReload && Interlocked.CompareExchange(ref _isReloading, 1, 0) == 0)
             {
-                _isReloading = true;
                 System.Diagnostics.Debug.WriteLine("[HardwareMonitor] Hardware change detected, triggering reload...");
-                
+
                 // 异步延迟重载，给硬件切换留出缓冲时间
-                Task.Run(async () => 
+                Task.Run(async () =>
                 {
                     try
                     {
@@ -272,7 +275,7 @@ namespace LiteMonitor.src.SystemServices
                     }
                     finally
                     {
-                        _isReloading = false;
+                        Interlocked.Exchange(ref _isReloading, 0);
                     }
                 });
             }
@@ -293,7 +296,7 @@ namespace LiteMonitor.src.SystemServices
                 catch (Exception ex)
                 {
                     // 吞掉关闭时的异常，防止弹窗报错困扰用户
-                    System.Diagnostics.Debug.WriteLine($"Dispose Error: {ex.Message}");
+                    Log.Debug($"HardwareMonitor.Dispose Error: {ex.Message}");
                 }
             }
 
@@ -351,7 +354,7 @@ namespace LiteMonitor.src.SystemServices
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Init Error: {ex.Message}");
+                    Log.Error("硬件监控初始化失败", ex);
                 }
                 finally
                 {
@@ -380,7 +383,7 @@ namespace LiteMonitor.src.SystemServices
                 if (IsMotherboardSensorHardware(hw))
                 {
                     try { UpdateWithSubHardware(hw); }
-                    catch { }
+                    catch (Exception ex) { Log.Info($"主板传感器预热失败 ({hw.Name}): {ex.Message}"); }
                 }
             }
         }
@@ -394,7 +397,7 @@ namespace LiteMonitor.src.SystemServices
                 if (hw.HardwareType == HardwareType.Battery)
                 {
                     try { hw.Update(); }
-                    catch { }
+                    catch (Exception ex) { Log.Info($"电池传感器预热失败 ({hw.Name}): {ex.Message}"); }
                 }
             }
         }
@@ -510,7 +513,10 @@ namespace LiteMonitor.src.SystemServices
                 GC.Collect();
                 SystemOptimizer.TrimWorkingSet();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Error("硬件安全重载 (ReloadComputerSafe) 失败，监控数据可能停止刷新", ex);
+            }
         }
 
         private void ReleaseComputerForDriverInstall()
@@ -533,11 +539,14 @@ namespace LiteMonitor.src.SystemServices
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[DriverInstaller] 释放硬件监控失败: {ex.Message}");
+                        Log.Warn($"[DriverInstaller] 释放硬件监控失败: {ex.Message}");
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log.Error("驱动安装前释放硬件监控失败", ex);
+            }
         }
 
         // =========================================================
@@ -634,7 +643,7 @@ namespace LiteMonitor.src.SystemServices
                     var prop = sensor.GetType().GetProperty("ValuesTimeWindow");
                     if (prop != null && prop.CanWrite) prop.SetValue(sensor, TimeSpan.Zero);
                 }
-                catch { }
+                catch (Exception ex) { Log.Debug($"禁用传感器历史失败 ({sensor.Name}): {ex.Message}"); }
             }
             public void VisitParameter(IParameter parameter) { }
         }

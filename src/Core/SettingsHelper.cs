@@ -82,14 +82,15 @@ namespace LiteMonitor
 
             try
             {
-                var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                var json = JsonSerializer.Serialize(settings, Json.Indented);
                 lock (_ioLock)
                 {
                     AtomicWrite(json);
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Error("settings.json 保存失败，本次更改可能丢失", ex);
                 CleanupTempFile();
             }
         }
@@ -111,13 +112,12 @@ namespace LiteMonitor
                 if (!File.Exists(path)) return null;
 
                 var json = File.ReadAllText(path);
-                return JsonSerializer.Deserialize<Settings>(json, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
+                return JsonSerializer.Deserialize<Settings>(json, Json.CaseInsensitive);
             }
-            catch
+            catch (Exception ex)
             {
+                // 单文件损坏时回退到备份或默认配置，但必须留痕便于排查
+                Log.Warn($"配置文件加载失败 (将尝试备份/默认): {path} | {ex.Message}");
                 return null;
             }
         }

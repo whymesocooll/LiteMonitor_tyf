@@ -194,8 +194,7 @@ namespace LiteMonitor
 
         public Settings DeepClone()
         {
-            var json = System.Text.Json.JsonSerializer.Serialize(this);
-            return System.Text.Json.JsonSerializer.Deserialize<Settings>(json) ?? new Settings();
+            return Json.Clone(this) ?? new Settings();
         }
     }
 

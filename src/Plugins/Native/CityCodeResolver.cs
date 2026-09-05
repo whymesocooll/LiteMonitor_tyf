@@ -129,28 +129,10 @@ namespace LiteMonitor.src.Plugins.Native
             _isLoading = true;
             try
             {
-                // [Optimization] Use SocketsHttpHandler with Proxy support and Decompression
-                var handler = new SocketsHttpHandler
+                // [Optimization] 复用进程级共享 HttpClient（系统代理 + SSL 容错），15s 超时用 CTS 控制
+                using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15)))
                 {
-                    AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate,
-                    PooledConnectionLifetime = TimeSpan.FromMinutes(5),
-                    UseProxy = true,
-                    // Use system proxy
-                    Proxy = System.Net.WebRequest.GetSystemWebProxy(),
-                    // [Fix] Bypass SSL validation for users with problematic certificates/proxies
-                    SslOptions = new System.Net.Security.SslClientAuthenticationOptions 
-                    {
-                        RemoteCertificateValidationCallback = delegate { return true; }
-                    }
-                };
-
-                using (var client = new HttpClient(handler))
-                {
-                    // 设置超时
-                    client.Timeout = TimeSpan.FromSeconds(15);
-                    client.DefaultRequestHeaders.Add("User-Agent", "LiteMonitor/1.0");
-                    
-                    var json = await client.GetStringAsync(JSON_DB_URL);
+                    var json = await HttpProvider.Default.GetStringAsync(JSON_DB_URL, cts.Token);
                     var rawDb = JsonSerializer.Deserialize<Dictionary<string, List<List<string>>>>(json);
 
                     // [Optimization] Intern strings in the DB to reduce memory usage

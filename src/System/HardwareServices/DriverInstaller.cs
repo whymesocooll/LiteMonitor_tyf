@@ -348,7 +348,7 @@ namespace LiteMonitor.src.SystemServices
                     _pawnIORestartRequiredThisSession = true;
                     _shouldExitAfterDriverOperation = true;
                     try { File.Delete(setupPath); } catch { }
-                    ShowPawnIORestartRequiredMessage(IsChinese
+                    DriverInstallUI.ShowRestartRequired(IsChinese, IsChinese
                         ? "旧版 PawnIO 驱动已开始卸载，但 Windows 需要重启后才能继续安装新版驱动。"
                         : "The old PawnIO driver started uninstalling, but Windows needs a restart before installing the new driver.");
                     return false;
@@ -383,7 +383,7 @@ namespace LiteMonitor.src.SystemServices
                 if (mode == DriverInstallMode.StartupBeforeHardware)
                     _shouldExitAfterDriverOperation = true;
                 try { File.Delete(setupPath); } catch { }
-                ShowPawnIORestartRequiredMessage(IsChinese
+                DriverInstallUI.ShowRestartRequired(IsChinese, IsChinese
                     ? "PawnIO 驱动更新已完成，但需要重启电脑后才能生效。"
                     : "PawnIO driver update completed, but Windows needs a restart before it takes effect.");
                 return true;
@@ -394,7 +394,7 @@ namespace LiteMonitor.src.SystemServices
                 _pawnIORestartRequiredThisSession = true;
                 if (mode == DriverInstallMode.StartupBeforeHardware)
                     _shouldExitAfterDriverOperation = true;
-                ShowPawnIORestartRequiredMessage(IsChinese
+                DriverInstallUI.ShowRestartRequired(IsChinese, IsChinese
                     ? "PawnIO 驱动仍处于上一次更新未完成的状态，Windows 需要重启后才能继续安装新版驱动。"
                     : "PawnIO is still in a pending driver update state. Windows needs a restart before installing the new driver.");
                 return false;
@@ -406,7 +406,7 @@ namespace LiteMonitor.src.SystemServices
                 {
                     _pawnIORestartRequiredThisSession = true;
                     _shouldExitAfterDriverOperation = true;
-                    ShowPawnIORestartRequiredMessage(IsChinese
+                    DriverInstallUI.ShowRestartRequired(IsChinese, IsChinese
                         ? "旧版 PawnIO 驱动仍被 Windows 保留，暂时无法覆盖安装新版驱动。"
                         : "The old PawnIO driver is still retained by Windows, so the new driver cannot be installed yet.");
                 }
@@ -450,7 +450,7 @@ namespace LiteMonitor.src.SystemServices
                         if (mode == DriverInstallMode.StartupBeforeHardware)
                             _shouldExitAfterDriverOperation = true;
                         try { File.Delete(setupPath); } catch { }
-                        ShowPawnIORestartRequiredMessage(IsChinese
+                        DriverInstallUI.ShowRestartRequired(IsChinese, IsChinese
                             ? "PawnIO 驱动安装已完成，但需要重启电脑后才能生效。"
                             : "PawnIO driver installation completed, but Windows needs a restart before it takes effect.");
                         return true;
@@ -461,7 +461,7 @@ namespace LiteMonitor.src.SystemServices
                         _pawnIORestartRequiredThisSession = true;
                         if (mode == DriverInstallMode.StartupBeforeHardware)
                             _shouldExitAfterDriverOperation = true;
-                        ShowPawnIORestartRequiredMessage(IsChinese
+                        DriverInstallUI.ShowRestartRequired(IsChinese, IsChinese
                             ? "PawnIO 驱动仍处于上一次更新未完成的状态，Windows 需要重启后才能继续安装新版驱动。"
                             : "PawnIO is still in a pending driver update state. Windows needs a restart before installing the new driver.");
                         return false;
@@ -546,7 +546,11 @@ namespace LiteMonitor.src.SystemServices
                         return new PawnIOInstallationInfo(true, version, versionText, quietUninstall, uninstall);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 注册表读取失败会被误判为“未安装”，必须留痕以便排查
+                Log.Warn($"读取 PawnIO 安装信息失败: {ex.Message}");
+            }
 
             return new PawnIOInstallationInfo(installed, null, firstVersionText, null, null);
         }
@@ -741,13 +745,9 @@ namespace LiteMonitor.src.SystemServices
             return DriverOperationResult.Failed;
         }
 
-        private void ShowPawnIORestartRequiredMessage(string description)
+        private void ShowMessageBox(string msg, string title, MessageBoxIcon icon)
         {
-            ShowMessageBox(description + (IsChinese
-                    ? "\n请重启电脑后再打开 LiteMonitor。"
-                    : "\nPlease restart Windows before opening LiteMonitor again."),
-                IsChinese ? "需要重启" : "Restart Required",
-                MessageBoxIcon.Information);
+            DriverInstallUI.ShowMessageBox(msg, title, icon);
         }
 
         private enum DriverOperationResult
@@ -804,57 +804,12 @@ namespace LiteMonitor.src.SystemServices
             public string? UninstallString { get; }
         }
 
-        private void ShowMessageBox(string msg, string title, MessageBoxIcon icon)
-        {
-            MessageBox.Show(msg, title, MessageBoxButtons.OK, icon);
-        }
-
         /// <summary>
-        /// 在 UI 线程显示下载对话框
+        /// 在 UI 线程显示下载对话框（实现已剥离到 DriverInstallUI）
         /// </summary>
         private Task<bool> ShowDownloadDialog(DownloadContext context)
         {
-            var tcs = new TaskCompletionSource<bool>();
-
-            void Show()
-            {
-                try
-                {
-                    using var dlg = new UpdateDialog(context, _cfg);
-                    var result = dlg.ShowDialog();
-                    tcs.TrySetResult(result == DialogResult.OK);
-                }
-                catch (Exception ex)
-                {
-                    tcs.TrySetException(ex);
-                }
-            }
-
-            // ... (STA 线程处理逻辑保持不变，只需调用新的 Show)
-            if (Application.OpenForms.Count > 0)
-            {
-                var form = Application.OpenForms[0];
-                if (form != null && !form.IsDisposed && form.IsHandleCreated)
-                {
-                    if (form.InvokeRequired) form.Invoke(new Action(Show));
-                    else Show();
-                    return tcs.Task;
-                }
-            }
-            
-            if (Thread.CurrentThread.GetApartmentState() == ApartmentState.STA)
-            {
-                Show();
-            }
-            else
-            {
-                var thread = new Thread(() => Show());
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.Start();
-                thread.Join();
-            }
-
-            return tcs.Task;
+            return DriverInstallUI.ShowDownloadDialog(_cfg, context);
         }
 
 

@@ -740,7 +740,7 @@ namespace LiteMonitor.src.Plugins
                     }
                 }
             }
-            System.Diagnostics.Debug.WriteLine($"Plugin exec error ({inst.Id}): {ex.Message}");
+            Log.Warn($"插件执行失败 ({inst.Id}): {ex.Message}");
         }
 
         private Dictionary<string, string> ResolveHeaders(Dictionary<string, string> headers, Dictionary<string, string> context)

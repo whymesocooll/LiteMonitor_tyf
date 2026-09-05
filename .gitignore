@@ -5,3 +5,9 @@ obj/
 # IDE
 .vs/
 *.user
+
+# 发行包（不应入库）
+LiteMonitor_v*-win-x64.zip
+
+# 安全扫描工具状态
+.mimosa/

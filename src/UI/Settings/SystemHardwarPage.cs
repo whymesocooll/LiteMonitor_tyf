@@ -55,8 +55,8 @@ namespace LiteMonitor.src.UI.SettingsPage
                 var taskDisks = Task.Run(() => HardwareScanner.ListAllDisks(HardwareMonitor.Instance.ComputerInstance));
                 var taskNets  = Task.Run(() => HardwareScanner.ListAllNetworks(HardwareMonitor.Instance.ComputerInstance));
                 var taskGpus  = Task.Run(() => HardwareMonitor.ListAllGpuOptions());
-                var taskFans  = Task.Run(() => HardwareScanner.ListAllFans(HardwareMonitor.Instance.ComputerInstance, HardwareMonitor.Instance.SyncLock));
-                var taskMobo  = Task.Run(() => HardwareScanner.ListAllMoboTemps(HardwareMonitor.Instance.ComputerInstance, HardwareMonitor.Instance.SyncLock));
+                var taskFans  = Task.Run(() => HardwareMonitor.ListAllFans());
+                var taskMobo  = Task.Run(() => HardwareMonitor.ListAllMoboTemps());
 
                 await Task.WhenAll(taskDisks, taskNets, taskGpus, taskFans, taskMobo);
 

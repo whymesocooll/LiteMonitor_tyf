@@ -72,6 +72,9 @@ namespace LiteMonitor.src.SystemServices
         private int _pendingPid = 0;            // 待切换的进程 PID
         private int _pendingCount = 0;          // 待切换进程的连续领先周期数
 
+        // ParseLine 解析失败只报一次的标志
+        private bool _parseErrorLogged = false;
+
         // PresentMon 会话名称
         private const string SESSION_NAME = "LiteMonitor_Golden_Session";
         
@@ -363,10 +366,16 @@ namespace LiteMonitor.src.SystemServices
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        Log($"PresentMon 输出流读取中断: {ex.Message}");
+                    }
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Log($"StartService 启动失败: {ex}");
+            }
             finally
             {
                 _isStarting = false;
@@ -402,7 +411,15 @@ namespace LiteMonitor.src.SystemServices
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 解析失败可能是 PresentMon 输出格式变化，只记录首次避免刷屏
+                if (!_parseErrorLogged)
+                {
+                    _parseErrorLogged = true;
+                    Log($"ParseLine 解析失败 (仅报首次): {line} | {ex.Message}");
+                }
+            }
         }
 
         /// <summary>
