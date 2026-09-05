@@ -207,10 +207,7 @@ namespace LiteMonitor.src.SystemServices
                     // 合理性区间 (0.5W ~ 500W)，防止 EC 误报污染整机功耗
                     if (batPower >= 0.5f && batPower <= 500f)
                     {
-                        float? components = SumComponentPower(sensorCache);
-                        float result = components.HasValue ? Math.Max(batPower, components.Value) : batPower;
-                        _cfg.UpdateMaxRecord("SYS.Power", result);
-                        return result;
+                        return RecordSystemPower(batPower);
                     }
                 }
             }
@@ -220,14 +217,12 @@ namespace LiteMonitor.src.SystemServices
             if (psu != null && psu.Value.HasValue && float.IsFinite(psu.Value.Value) &&
                 psu.Value.Value >= 1f && psu.Value.Value <= 1000f)
             {
-                float? components = SumComponentPower(sensorCache);
-                float result = components.HasValue ? Math.Max(psu.Value.Value, components.Value) : psu.Value.Value;
-                _cfg.UpdateMaxRecord("SYS.Power", result);
-                return result;
+                return RecordSystemPower(psu.Value.Value);
             }
 
             // 3. 组件求和兜底
-            return SumComponentPower(sensorCache);
+            float? fallback = SumComponentPower(sensorCache);
+            return fallback.HasValue ? RecordSystemPower(fallback.Value) : null;
         }
 
         /// <summary>
@@ -239,23 +234,35 @@ namespace LiteMonitor.src.SystemServices
             float total = 0f;
             bool has = false;
 
-            float? cpu = GetCompositeValue("CPU.Power", sensorCache);
-            if (cpu.HasValue) { total += cpu.Value; has = true; }
-
-            float? gpu = GetCompositeValue("GPU.Power", sensorCache);
-            if (gpu.HasValue) { total += gpu.Value; has = true; }
-
-            // 其它硬件 (主板/内存/存储/网络等) 的功耗传感器：单项上限 200W 防异常值
-            foreach (var s in _sensorMap.SystemPowerSensors)
+            bool TryAdd(float? value, float max)
             {
-                if (s.Value.HasValue && float.IsFinite(s.Value.Value) && s.Value.Value >= 0f && s.Value.Value <= 200f)
-                {
-                    total += s.Value.Value;
-                    has = true;
-                }
+                if (!IsValidComponentPower(value, max)) return false;
+                total += value!.Value;
+                has = true;
+                return true;
             }
 
-            return has && total <= 1000f ? total : null;
+            TryAdd(GetCompositeValue("CPU.Power", sensorCache), 600f);
+            TryAdd(GetCompositeValue("GPU.Power", sensorCache), 1200f);
+
+            // 同一硬件已在 SensorMap 中选出单个聚合功耗，避免重复计数。
+            foreach (var sensor in _sensorMap.SystemPowerSensors)
+            {
+                TryAdd(sensor.Value, 200f);
+            }
+
+            return has && float.IsFinite(total) && total <= 1000f ? total : null;
+        }
+
+        private float RecordSystemPower(float value)
+        {
+            _cfg.UpdateMaxRecord("SYS.Power", value);
+            return value;
+        }
+
+        private static bool IsValidComponentPower(float? value, float max)
+        {
+            return value.HasValue && float.IsFinite(value.Value) && value.Value >= 0f && value.Value <= max;
         }
     }
 }

@@ -240,19 +240,29 @@ namespace LiteMonitor.src.SystemServices
                     return;
                 }
 
-                foreach (var s in hw.Sensors)
+                if (hw.HardwareType == HardwareType.Psu)
                 {
-                    if (s.SensorType != SensorType.Power) continue;
-
-                    if (hw.HardwareType == HardwareType.Psu)
+                    var total = hw.Sensors.FirstOrDefault(s =>
+                        s.SensorType == SensorType.Power &&
+                        HardwareRules.Has(s.Name, "total") &&
+                        (HardwareRules.Has(s.Name, "output") || !HardwareRules.Has(s.Name, "input")));
+                    if (total != null && (psuPower == null || HardwareRules.Has(total.Name, "output")))
                     {
-                        // 优先选择 Total 总功耗传感器
-                        if (psuPower == null) psuPower = s;
-                        else if (HardwareRules.Has(s.Name, "total")) psuPower = s;
-                        continue;
+                        psuPower = total;
                     }
-
-                    extraPower.Add(s);
+                }
+                else
+                {
+                    var firstPower = hw.Sensors.FirstOrDefault(s => s.SensorType == SensorType.Power);
+                    if (firstPower != null)
+                    {
+                        var aggregate = hw.Sensors.FirstOrDefault(s =>
+                            s.SensorType == SensorType.Power &&
+                            (HardwareRules.Has(s.Name, "total") ||
+                             HardwareRules.Has(s.Name, "package") ||
+                             HardwareRules.Has(s.Name, "overall")));
+                        extraPower.Add(aggregate ?? firstPower);
+                    }
                 }
 
                 foreach (var sub in hw.SubHardware) CollectPowerSensors(sub);

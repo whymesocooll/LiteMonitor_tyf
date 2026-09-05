@@ -191,6 +191,7 @@ namespace LiteMonitor.src.SystemServices
                     bool isSlowScanTick = (_secondsCounter % 3 == 0); 
                     // 10秒一次 (磁盘后台扫描)
                     bool needDiskBgScan = (_secondsCounter % 10 == 0);
+                    bool needSystemPower = _cfg.IsAnyEnabled("SYS") || _cfg.IsAnyEnabled("SYS.Power");
 
                     foreach (var hw in _computer.Hardware)
                     {
@@ -212,6 +213,13 @@ namespace LiteMonitor.src.SystemServices
 
                         if (hw.HardwareType == HardwareType.Memory && requirements.NeedMem) { hw.Update(); continue; }
                         if (hw.HardwareType == HardwareType.Battery && requirements.NeedBat) { hw.Update(); continue; }
+
+                        // PSU 总功耗是整机功耗的权威来源，必须在每轮监控前刷新，避免消费陈旧值。
+                        if (hw.HardwareType == HardwareType.Psu && needSystemPower)
+                        {
+                            UpdateWithSubHardware(hw);
+                            continue;
+                        }
 
                         if (hw.HardwareType == HardwareType.Network && requirements.NeedNet)
                         {
