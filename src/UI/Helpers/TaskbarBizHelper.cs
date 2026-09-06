@@ -26,12 +26,19 @@ namespace LiteMonitor.src.UI.Helpers
         // 样式相关
         private bool _lastIsLightTheme = false;
         private Color _transparentKey = Color.Black;
+        private Color _glassBack = Color.Empty;
+        private Color _glassBorder = Color.Empty;
 
         public int Height => _taskbarHeight;
         public Rectangle Rect => _taskbarRect;
         public IntPtr HandleTaskbar => _hTaskbar;
         public Color TransparentKey => _transparentKey;
         public bool LastIsLightTheme => _lastIsLightTheme;
+
+        // ★★★ 毛玻璃配色（由 CheckTheme 按系统明暗/自定义样式计算）★★★
+        public bool GlassEnabled => _cfg.TaskbarGlass;
+        public Color GlassBack => _glassBack;
+        public Color GlassBorder => _glassBorder;
 
         public TaskbarBizHelper(Form form, Settings cfg, TaskbarWinHelper winHelper)
         {
@@ -76,7 +83,35 @@ namespace LiteMonitor.src.UI.Helpers
                 else _transparentKey = Color.FromArgb(40, 40, 41);       
             }
 
-            _winHelper.ApplyLayeredStyle(_transparentKey, _cfg.TaskbarClickThrough);
+            ComputeGlassColors(isLight);
+
+            _winHelper.ApplyLayeredStyle(_transparentKey, _cfg.TaskbarClickThrough, _cfg.TaskbarGlass);
+        }
+
+        /// <summary>
+        /// 计算毛玻璃面板配色：着色基底取自定义背景色或按系统明暗取默认，alpha 来自不透明度设置
+        /// </summary>
+        private void ComputeGlassColors(bool isLight)
+        {
+            int alpha = Math.Clamp(_cfg.TaskbarGlassOpacity, 0, 100) * 255 / 100;
+
+            Color baseTint;
+            if (_cfg.TaskbarCustomStyle)
+            {
+                try
+                {
+                    // ParseColor 支持 #AARRGGBB；这里只取 RGB 做着色基底
+                    baseTint = ThemeManager.ParseColor(_cfg.TaskbarColorBg);
+                }
+                catch { baseTint = isLight ? Color.FromArgb(250, 250, 252) : Color.FromArgb(32, 34, 39); }
+            }
+            else
+            {
+                baseTint = isLight ? Color.FromArgb(250, 250, 252) : Color.FromArgb(32, 34, 39);
+            }
+
+            _glassBack = Color.FromArgb(alpha, baseTint);
+            _glassBorder = isLight ? Color.FromArgb(40, 0, 0, 0) : Color.FromArgb(35, 255, 255, 255);
         }
 
         // =================================================================

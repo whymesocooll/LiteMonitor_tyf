@@ -1,4 +1,5 @@
 using LiteMonitor.src.Core;
+using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 
 namespace LiteMonitor
@@ -32,17 +33,13 @@ namespace LiteMonitor
         // ★★★ [新增] 极简的核心：手动刷新缓存 ★★★
         // 在 UIController 初始化或配置变更时调用它
         public static void ReloadStyle(Settings cfg)
-        {     
+        {
             var s = cfg.GetStyle();
 
-            // ★★★ 修复：先释放旧字体资源，防止 GDI 句柄泄漏 ★★★
-            if (_cachedFont != null)
-            {
-                try { _cachedFont.Dispose(); } catch { }
-                _cachedFont = null;
-            }
-
-            // 无论开关怎么变，这里拿到的永远是正确参数
+            // ★★★ 修复：这里持有的字体是 UIUtils.GetFont 共享缓存的实例，绝不能 Dispose ★★★
+            // Dispose 后缓存字典仍会把这个已释放实例交回来，GDI+ DrawString 会抛
+            // "Parameter is not valid"（GDI TextRenderer 恰好容忍，所以旧版未暴露）。
+            // 字体生命周期统一归 UIUtils（ClearBrushCache 释放并清缓存）。
             _cachedFont = UIUtils.GetFont(s.Font, s.Size, s.Bold);
 
             // 颜色依然允许自定义
@@ -61,7 +58,7 @@ namespace LiteMonitor
             }
         }
 
-        public static void Render(Graphics g, List<Column> cols, bool light) // <--- 新的
+        public static void Render(Graphics g, List<Column> cols, bool light, bool alphaSurface = false) // <--- 新的
         {
             // [防空策略] 万一还没人调用 ReloadStyle，就自己兜底初始化一次
             if (_cachedFont == null)
@@ -69,10 +66,11 @@ namespace LiteMonitor
                 // 兜底：读磁盘配置（仅第一次）
                 ReloadStyle(Settings.Load());
             }
-            
+
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
             g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
-            g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            if (!alphaSurface) g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+            else g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
 
             // 使用传入的 light 参数，避免每次都查询系统主题瓠
             //bool light = IsSystemLight();
@@ -82,19 +80,63 @@ namespace LiteMonitor
                 // ★★★ [新增]：如果只有 Top 没有 Bottom，强制使用全高绘制（居中）
                 if (col.Top != null && col.Bottom == null && col.Bounds != Rectangle.Empty)
                 {
-                    DrawItem(g, col.Top, col.Bounds, light);
+                    DrawItem(g, col.Top, col.Bounds, light, alphaSurface);
                     continue; // 处理完这个特殊情况直接跳过本次循环
                 }
 
                 if (col.BoundsTop != Rectangle.Empty && col.Top != null)
-                    DrawItem(g, col.Top, col.BoundsTop, light);
+                    DrawItem(g, col.Top, col.BoundsTop, light, alphaSurface);
 
                 if (col.BoundsBottom != Rectangle.Empty && col.Bottom != null)
-                    DrawItem(g, col.Bottom, col.BoundsBottom, light);
+                    DrawItem(g, col.Bottom, col.BoundsBottom, light, alphaSurface);
             }
         }
 
-        private static void DrawItem(Graphics g, MetricItem item, Rectangle rc, bool light)
+        // =================================================================
+        // 毛玻璃面板背景（Mac 风格：圆角 + 顶部微渐变高光 + 1px 描边）
+        // =================================================================
+        // alpha 表面专用文字格式：GDI+ 才能正确写 alpha（GDI TextRenderer 会把像素 alpha 清零导致文字消失）
+        private static readonly StringFormat _sfNear = new StringFormat(StringFormat.GenericTypographic)
+        {
+            Alignment = StringAlignment.Near,
+            LineAlignment = StringAlignment.Center
+        };
+        private static readonly StringFormat _sfFar = new StringFormat(StringFormat.GenericTypographic)
+        {
+            Alignment = StringAlignment.Far,
+            LineAlignment = StringAlignment.Center
+        };
+
+        public static void RenderGlass(Graphics g, int w, int h, Color back, Color border)
+        {
+            int radius = Math.Max(4, Math.Min(h / 2 - 2, 12));
+            using var path = RoundedRect(0, 0, w, h, radius);
+
+            // 顶部轻微提亮的垂直渐变，模拟玻璃高光
+            Color top = Color.FromArgb(back.A,
+                Math.Min(255, back.R + 14),
+                Math.Min(255, back.G + 14),
+                Math.Min(255, back.B + 14));
+            using var brush = new LinearGradientBrush(new Rectangle(0, 0, w, h), top, back, 90f);
+            g.FillPath(brush, path);
+
+            using var pen = new Pen(border);
+            g.DrawPath(pen, path);
+        }
+
+        private static GraphicsPath RoundedRect(int x, int y, int w, int h, int radius)
+        {
+            var path = new GraphicsPath();
+            int d = radius * 2;
+            path.AddArc(x, y, d, d, 180, 90);
+            path.AddArc(x + w - d, y, d, d, 270, 90);
+            path.AddArc(x + w - d, y + h - d, d, d, 0, 90);
+            path.AddArc(x, y + h - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
+
+        private static void DrawItem(Graphics g, MetricItem item, Rectangle rc, bool light, bool alphaSurface = false)
         {
             // ★★★ 优化：直接使用缓存的 ShortLabel，避免每帧生成 Key 和查询字典 ★★★
             string label = item.ShortLabel;
@@ -134,6 +176,11 @@ namespace LiteMonitor
             // ★★★ 修复：如果开启了隐藏标签 (如 IP/Dashboard)，则仅绘制 Value (左对齐) ★★★
             if (hideLabel)
             {
+                if (alphaSurface)
+                {
+                    DrawStringSafe(g, value, rc, valueColor, _sfNear);
+                    return;
+                }
                 TextRenderer.DrawText(
                     g, value, font, rc, valueColor,
                     TextFormatFlags.Left |
@@ -141,6 +188,13 @@ namespace LiteMonitor
                     TextFormatFlags.NoPadding |
                     TextFormatFlags.NoClipping
                 );
+                return;
+            }
+
+            if (alphaSurface)
+            {
+                DrawStringSafe(g, label, rc, labelColor, _sfNear);
+                DrawStringSafe(g, value, rc, valueColor, _sfFar);
                 return;
             }
 
@@ -161,6 +215,43 @@ namespace LiteMonitor
                 TextFormatFlags.NoPadding |
                 TextFormatFlags.NoClipping
             );
+        }
+
+        // alpha 表面用画刷缓存：GDI+ DrawString 每帧 new SolidBrush 会产生 GC 压力
+        private static SolidBrush? _cachedBrush;
+        private static Color _cachedBrushColor = Color.Empty;
+        private static SolidBrush GetCachedBrush(Color c)
+        {
+            if (_cachedBrush == null || _cachedBrushColor != c)
+            {
+                _cachedBrush?.Dispose();
+                _cachedBrush = new SolidBrush(c);
+                _cachedBrushColor = c;
+            }
+            return _cachedBrush;
+        }
+
+        // alpha 表面专用：GDI+ 对已释放的 Font 会直接抛 "Parameter is not valid"（GDI 会容忍）。
+        // 自愈策略：重建字体后重试一次，仍失败则跳过该项并记日志，绝不让单条文字拖垮整个任务栏。
+        private static void DrawStringSafe(Graphics g, string text, Rectangle rc, Color color, StringFormat sf)
+        {
+            var rf = new RectangleF(rc.X, rc.Y, rc.Width, rc.Height);
+            try
+            {
+                g.DrawString(text, _cachedFont!, GetCachedBrush(color), rf, sf);
+            }
+            catch (ArgumentException)
+            {
+                ReloadStyle(Settings.Load());
+                try
+                {
+                    g.DrawString(text, _cachedFont!, GetCachedBrush(color), rf, sf);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[Taskbar] 玻璃模式文字绘制失败(已跳过) text='{text}'", ex);
+                }
+            }
         }
         // [新增] 辅助：根据状态快速获取颜色 (替代原来的 PickColor)
         private static Color GetStateColor(int state, bool light)

@@ -83,6 +83,25 @@ namespace LiteMonitor.src.UI.Helpers
         [DllImport("dwmapi.dll")] public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
         [DllImport("user32.dll")] public static extern bool MoveWindow(IntPtr hWnd, int X, int Y, int nWidth, int nHeight, bool bRepaint);
         [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hWnd);
+
+        // ★★★ 毛玻璃：UpdateLayeredWindow 逐像素 alpha ★★★
+        public const uint ULW_ALPHA = 2;
+        public const byte AC_SRC_OVER = 0;
+        public const byte AC_SRC_ALPHA = 1;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SIZE { public int cx, cy; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct BLENDFUNCTION { public byte BlendOp, BlendFlags, SourceConstantAlpha, AlphaFormat; }
+
+        [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDc);
+        [DllImport("gdi32.dll")] public static extern IntPtr CreateCompatibleDC(IntPtr hDc);
+        [DllImport("gdi32.dll")] public static extern bool DeleteDC(IntPtr hDc);
+        [DllImport("gdi32.dll")] public static extern IntPtr SelectObject(IntPtr hDc, IntPtr hObject);
+        [DllImport("gdi32.dll")] public static extern bool DeleteObject(IntPtr hObject);
+        [DllImport("user32.dll")] public static extern bool UpdateLayeredWindow(IntPtr hWnd, IntPtr hdcDst, IntPtr pptDst, ref SIZE psize, IntPtr hdcSrc, ref POINT pptSrc, uint crKey, ref BLENDFUNCTION pblend, uint dwFlags);
     }
 
     /// <summary>
@@ -121,22 +140,90 @@ namespace LiteMonitor.src.UI.Helpers
         // =================================================================
         // 样式与图层
         // =================================================================
-        public void ApplyLayeredStyle(Color transparentKey, bool clickThrough)
+
+        // 当前句柄上是否调用过 SetLayeredWindowAttributes（调用过则 ULW 不可用，需重建句柄）
+        private bool _slwaUsed = false;
+        private bool _ulwFailLogged = false;
+
+        public void ApplyLayeredStyle(Color transparentKey, bool clickThrough, bool glass = false)
         {
             _form.BackColor = transparentKey;
-            
-            if (_form.IsHandleCreated)
+
+            if (_form.IsHandleCreated && !glass)
             {
+                // 玻璃→色键可直接切换（探针实证 ULW 之后调 SLWA 是允许的）
                 uint colorKey = (uint)(transparentKey.R | (transparentKey.G << 8) | (transparentKey.B << 16));
-                SetLayeredWindowAttributes(_form.Handle, colorKey, 0, LWA_COLORKEY);
+                if (SetLayeredWindowAttributes(_form.Handle, colorKey, 0, LWA_COLORKEY))
+                    _slwaUsed = true;
             }
+            // 玻璃模式不调用 SLWA；若句柄上曾调用过，由 BeginGlassMode 重建句柄
 
             int exStyle = GetWindowLong(_form.Handle, GWL_EXSTYLE);
-            if (clickThrough) exStyle |= WS_EX_TRANSPARENT; 
-            else exStyle &= ~WS_EX_TRANSPARENT; 
+            if (clickThrough) exStyle |= WS_EX_TRANSPARENT;
+            else exStyle &= ~WS_EX_TRANSPARENT;
             SetWindowLong(_form.Handle, GWL_EXSTYLE, exStyle);
-            
+
             _form.Invalidate();
+        }
+
+        /// <summary>
+        /// 当前句柄是否调用过 SLWA（为 true 时 ULW 不可用，调用方需重建句柄后才能进入玻璃模式）
+        /// </summary>
+        public bool SlwaUsed => _slwaUsed;
+
+        /// <summary>
+        /// 清除 SLWA 使用标记（配合调用方 RecreateHandle 使用：新句柄自带 LAYERED 且无 SLWA 记录）
+        /// </summary>
+        public void BeginGlassMode()
+        {
+            _slwaUsed = false;
+        }
+
+        /// <summary>
+        /// 把 32bppPArgb 位图提交为窗口内容（逐像素 alpha，alpha=0 的像素自动点击穿透）
+        /// </summary>
+        public bool UpdateGlassSurface(Bitmap surface)
+        {
+            if (!_form.IsHandleCreated || surface == null) return false;
+
+            IntPtr screenDc = GetDC(IntPtr.Zero);
+            try
+            {
+                IntPtr memDc = CreateCompatibleDC(screenDc);
+                IntPtr hBitmap = surface.GetHbitmap(Color.FromArgb(0));
+                IntPtr oldBitmap = SelectObject(memDc, hBitmap);
+                try
+                {
+                    var size = new SIZE { cx = surface.Width, cy = surface.Height };
+                    var srcPos = new POINT { X = 0, Y = 0 };
+                    var blend = new BLENDFUNCTION
+                    {
+                        BlendOp = AC_SRC_OVER,
+                        BlendFlags = 0,
+                        SourceConstantAlpha = 255,
+                        AlphaFormat = AC_SRC_ALPHA
+                    };
+                    // pptDst 传 NULL：位置仍由 SetPosition/SetWindowPos 管理
+                    bool ok = UpdateLayeredWindow(_form.Handle, screenDc, IntPtr.Zero, ref size, memDc, ref srcPos, 0, ref blend, ULW_ALPHA);
+                    if (!ok && !_ulwFailLogged)
+                    {
+                        _ulwFailLogged = true;
+                        Log.Warn($"[Taskbar] UpdateLayeredWindow 失败 err={Marshal.GetLastWin32Error()}，毛玻璃面板不可见（可尝试关闭毛玻璃开关回退色键模式）");
+                    }
+                    if (ok) _ulwFailLogged = false;
+                    return ok;
+                }
+                finally
+                {
+                    SelectObject(memDc, oldBitmap);
+                    DeleteObject(hBitmap);
+                    DeleteDC(memDc);
+                }
+            }
+            finally
+            {
+                ReleaseDC(IntPtr.Zero, screenDc);
+            }
         }
 
         public bool IsSystemLightTheme()

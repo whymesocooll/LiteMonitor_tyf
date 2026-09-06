@@ -25,6 +25,8 @@ namespace LiteMonitor
         private DateTime _lastFindHandleTime = DateTime.MinValue;
         private string _lastLayoutSignature = "";
         private readonly TaskbarTooltipHelper _tooltipHelper;
+        private Bitmap? _glassSurface;
+        private bool _glassOn;
         
         // 公开属性
         public string TargetDevice { get; private set; } = "";
@@ -63,7 +65,7 @@ namespace LiteMonitor
             _bizHelper.FindHandles();
             
             _bizHelper.AttachToTaskbar();
-            _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
+            _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough, _bizHelper.GlassEnabled);
 
             _timer.Interval = Math.Max(_cfg.RefreshMs, 60);
             _timer.Tick += (_, __) => Tick();
@@ -79,7 +81,8 @@ namespace LiteMonitor
         {
             _layout = new HorizontalLayout(ThemeManager.Current, 300, LayoutMode.Taskbar, _cfg);
             _lastLayoutSignature = ""; // 重置签名，强制重算
-            _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough);
+            ApplyModeIfNeeded();
+            _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough, _bizHelper.GlassEnabled);
             _bizHelper.CheckTheme(true);
 
             // 更新悬浮窗模式 (支持热切换)
@@ -105,6 +108,8 @@ namespace LiteMonitor
                 _timer.Dispose();
                 _currentMenu?.Dispose();
                 _tooltipHelper?.Dispose();
+                _glassSurface?.Dispose();
+                _glassSurface = null;
             }
             base.Dispose(disposing);
         }
@@ -171,6 +176,8 @@ namespace LiteMonitor
 
         private void Tick()
         {
+            ApplyModeIfNeeded();
+
             // [Fix] 周期性检查句柄，防止 Explorer 重启后句柄失效
             // 优化：仅在重试期或句柄无效时调用 FindHandles，且限制调用频率
             bool isHandleInvalid = !_bizHelper.IsTaskbarValid();
@@ -223,10 +230,79 @@ namespace LiteMonitor
             }
             
             _bizHelper.UpdatePlacement(Width);
-            
+
             _tooltipHelper.UpdateContent();
 
-            Invalidate();
+            if (_bizHelper.GlassEnabled)
+            {
+                RenderGlassFrame();
+            }
+            else
+            {
+                Invalidate();
+            }
+        }
+
+        // =================================================================
+        // 毛玻璃渲染：渲染到 32bppPArgb 位图后经 UpdateLayeredWindow 提交
+        // =================================================================
+
+        // 分层模式状态机：玻璃(ULW) / 色键(SLWA) 互斥。切换方式经探针实证：
+        // 玻璃→色键：直接调 SLWA 即可；色键→玻璃：必须重建句柄
+        // （任务栏子窗口上"清除再重设 WS_EX_LAYERED"的第二步 SetWindowLong 会失败，分层位丢失后窗口永久不可见）
+        private void ApplyModeIfNeeded()
+        {
+            bool want = _bizHelper.GlassEnabled;
+            if (want == _glassOn) return;
+
+            if (want)
+            {
+                // 句柄上若调用过 SLWA，ULW 会失败（err=87）且任务栏子窗口无法通过 SetWindowLong
+                // 加回 LAYERED 位——重建句柄（新句柄自带 LAYERED 且无 SLWA 记录）
+                bool needRecreate = _winHelper.SlwaUsed;
+                _winHelper.BeginGlassMode();
+                if (needRecreate) RecreateHandle();
+                _bizHelper.AttachToTaskbar();  // 重建后父窗口丢失，重新挂载
+                _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough, glass: true);
+                _bizHelper.UpdatePlacement(Width);
+            }
+            else
+            {
+                _winHelper.ApplyLayeredStyle(_bizHelper.TransparentKey, _cfg.TaskbarClickThrough, glass: false);
+            }
+            _glassOn = want;
+        }
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            // 玻璃模式下首帧 ULW 之前窗口不可见（分层窗口在 LWA/ULW 之前不渲染），立即渲染消除空白期
+            if (_glassOn) RenderGlassFrame();
+        }
+
+        private void RenderGlassFrame()
+        {
+            if (_cols == null || _cols.Count == 0) return;
+            if (Width <= 0 || Height <= 0) return;
+
+            int w = Width, h = Height;
+            if (_glassSurface == null || _glassSurface.Width != w || _glassSurface.Height != h)
+            {
+                _glassSurface?.Dispose();
+                _glassSurface = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
+            }
+
+            using (var g = Graphics.FromImage(_glassSurface))
+            {
+                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+                g.Clear(Color.FromArgb(0, 0, 0, 0));
+
+                TaskbarRenderer.RenderGlass(g, w, h, _bizHelper.GlassBack, _bizHelper.GlassBorder);
+                TaskbarRenderer.Render(g, _cols, _bizHelper.LastIsLightTheme, alphaSurface: true);
+            }
+
+            _winHelper.UpdateGlassSurface(_glassSurface);
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)

@@ -225,8 +225,18 @@ namespace LiteMonitor.src.UI.SettingsPage
             var group = new LiteSettingsGroup(LanguageManager.T("Menu.TaskbarCustomColors"));
             _customColorInputs.Clear();
 
-            var chkColor = group.AddToggle(this, "Menu.TaskbarCustomColors", 
-                () => Config?.TaskbarCustomStyle ?? false, 
+            // ★ 毛玻璃背景（Mac 风格半透明圆角面板）★
+            var chkGlass = group.AddToggle(this, "Menu.TaskbarGlass",
+                () => Config?.TaskbarGlass ?? true,
+                v => { if (Config != null) Config.TaskbarGlass = v; });
+            var glassOpacity = group.AddInt(this, "Menu.TaskbarGlassOpacity", "%",
+                () => Config?.TaskbarGlassOpacity ?? 72,
+                v => { if (Config != null) Config.TaskbarGlassOpacity = Math.Clamp(v, 0, 100); });
+            glassOpacity.Enabled = chkGlass.Checked;
+            chkGlass.CheckedChanged += (s, e) => glassOpacity.Enabled = chkGlass.Checked;
+
+            var chkColor = group.AddToggle(this, "Menu.TaskbarCustomColors",
+                () => Config?.TaskbarCustomStyle ?? false,
                 v => { if(Config!=null) Config.TaskbarCustomStyle = v; });
             
             chkColor.CheckedChanged += (s, e) => {

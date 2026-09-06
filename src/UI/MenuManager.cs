@@ -492,15 +492,15 @@ namespace LiteMonitor
             };
             menu.Items.Add(trendItem);
 
-            // 历史流量统计 (独立窗口，保持原样)
-            var trafficItem = new ToolStripMenuItem(LanguageManager.T("Menu.Traffic"));
-            trafficItem.Image = Properties.Resources.TrafficIcon;
-            trafficItem.Click += (_, __) =>
+            // DNS 测速与一键切换 (独立窗口，打开即自动测速，切换成功后自动关闭)
+            var dnsItem = new ToolStripMenuItem(LanguageManager.T("Menu.DnsTool"));
+            dnsItem.Image = Properties.Resources.NetworkIcon;
+            dnsItem.Click += (_, __) =>
             {
-                var formHistory = new TrafficHistoryForm(cfg);
-                formHistory.Show();
+                var dnsForm = new DnsToolForm();
+                dnsForm.Show();
             };
-            menu.Items.Add(trafficItem);
+            menu.Items.Add(dnsItem);
             menu.Items.Add(new ToolStripSeparator());
         }
 

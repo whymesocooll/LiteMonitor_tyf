@@ -28,6 +28,9 @@ namespace LiteMonitor
         public int PanelWidth { get; set; } = 240;
         public double UIScale { get; set; } = 1.0;
 
+        // ====== DNS 测速/切换工具 ======
+        public string DnsAdapterAlias { get; set; } = ""; // 记忆上次选择的网卡
+
         // ====== 硬件相关 ======
         public string PreferredNetwork { get; set; } = "";
         public string LastAutoNetwork { get; set; } = "";
@@ -92,6 +95,10 @@ namespace LiteMonitor
         public bool TaskbarSingleLine { get; set; } = false;// 单行显示
         public bool TaskbarHoverShowAll { get; set; } = true; // [新增] 悬浮显示所有监控项
         public int TaskbarManualOffset { get; set; } = 0;// 手动偏移量 (像素)
+
+        // ★★★ 任务栏：毛玻璃背景 (Mac 风格半透明圆角面板) ★★★
+        public bool TaskbarGlass { get; set; } = true;
+        public int TaskbarGlassOpacity { get; set; } = 72; // 玻璃着色不透明度 0-100
 
         // ====== 任务栏：高级自定义外观 ======
         public bool TaskbarCustomStyle { get; set; } = false; // 总开关
