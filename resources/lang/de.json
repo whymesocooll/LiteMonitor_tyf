@@ -146,6 +146,7 @@
     "__Comment_Page2__": "--- 2. Taskleiste ---",
     "TaskbarSettings": "Taskleiste",
     "TaskbarShow": "Anzeigen",
+    "TaskbarIcon": "Symbolmodus (statt Textbeschriftung)",
     "TaskbarSingleLine": "Einzeilig",
     "TaskbarHoverShowAll": "Hover-Details",
     "TaskbarStyle": "Stil",

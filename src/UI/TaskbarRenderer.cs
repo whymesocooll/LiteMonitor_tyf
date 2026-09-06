@@ -30,6 +30,11 @@ namespace LiteMonitor
         private static bool _useCustom = false;
         private static Color _cLabel, _cSafe, _cWarn, _cCrit;
 
+        // ★★★ [新增] 图标模式缓存（ReloadStyle 时统一刷新） ★★★
+        private static bool _useIcons = false;
+        private static int _iconSize = 15;
+        private static int _iconGap = 8;
+
         // ★★★ [新增] 极简的核心：手动刷新缓存 ★★★
         // 在 UIController 初始化或配置变更时调用它
         public static void ReloadStyle(Settings cfg)
@@ -41,6 +46,15 @@ namespace LiteMonitor
             // "Parameter is not valid"（GDI TextRenderer 恰好容忍，所以旧版未暴露）。
             // 字体生命周期统一归 UIUtils（ClearBrushCache 释放并清缓存）。
             _cachedFont = UIUtils.GetFont(s.Font, s.Size, s.Bold);
+
+            // 图标模式：尺寸/间距随字体与 DPI 缩放（与 HorizontalLayout 测量共用公式）
+            _useIcons = cfg.TaskbarUseIcons;
+            if (_useIcons)
+            {
+                _iconSize = MetricIconPainter.IconSizeFor(_cachedFont);
+                using var g = Graphics.FromHwnd(IntPtr.Zero);
+                _iconGap = (int)MathF.Round(s.Inner * g.DpiX / 96f);
+            }
 
             // 颜色依然允许自定义
             _useCustom = cfg.TaskbarCustomStyle;
@@ -176,6 +190,27 @@ namespace LiteMonitor
             // ★★★ 修复：如果开启了隐藏标签 (如 IP/Dashboard)，则仅绘制 Value (左对齐) ★★★
             if (hideLabel)
             {
+                // 图标模式：即使标签被隐藏（IP/时间等"纯文字"项），也给出组件图标
+                if (_useIcons)
+                {
+                    DrawMetricIcon(g, item, rc, labelColor);
+                    var vrc = new Rectangle(rc.X + _iconSize + _iconGap, rc.Y,
+                        Math.Max(0, rc.Width - _iconSize - _iconGap), rc.Height);
+                    if (alphaSurface)
+                    {
+                        DrawStringSafe(g, value, vrc, valueColor, _sfNear);
+                        return;
+                    }
+                    TextRenderer.DrawText(
+                        g, value, font, vrc, valueColor,
+                        TextFormatFlags.Left |
+                        TextFormatFlags.VerticalCenter |
+                        TextFormatFlags.NoPadding |
+                        TextFormatFlags.NoClipping
+                    );
+                    return;
+                }
+
                 if (alphaSurface)
                 {
                     DrawStringSafe(g, value, rc, valueColor, _sfNear);
@@ -191,6 +226,27 @@ namespace LiteMonitor
                 return;
             }
 
+            // ★★★ [新增] 图标模式：以组件图标替代文字标签，数值保持状态色右对齐 ★★★
+            if (_useIcons)
+            {
+                DrawMetricIcon(g, item, rc, labelColor);
+
+                if (alphaSurface)
+                {
+                    DrawStringSafe(g, value, rc, valueColor, _sfFar);
+                    return;
+                }
+                TextRenderer.DrawText(
+                    g, value, font, rc, valueColor,
+                    TextFormatFlags.Right |
+                    TextFormatFlags.VerticalCenter |
+                    TextFormatFlags.NoPadding |
+                    TextFormatFlags.NoClipping
+                );
+                return;
+            }
+
+            // Label 左对齐 / Value 右对齐（alpha 表面必须走 GDI+，GDI 会清像素 alpha）
             if (alphaSurface)
             {
                 DrawStringSafe(g, label, rc, labelColor, _sfNear);
@@ -259,6 +315,18 @@ namespace LiteMonitor
             if (state == 2) return light ? CRIT_LIGHT : CRIT_DARK;
             if (state == 1) return light ? WARN_LIGHT : WARN_DARK;
             return light ? SAFE_LIGHT : SAFE_DARK;
+        }
+
+        // ★★★ [新增] 图标绘制：尺寸自适应行高，电池按真实电量填充 ★★★
+        // 充电状态不复述：值文本已带 "⚡" 后缀（MetricUtils），图标内再画会重复
+        private static void DrawMetricIcon(Graphics g, MetricItem item, Rectangle rc, Color color)
+        {
+            var id = MetricIconPainter.Resolve(item.Key);
+            float fill = id == MetricIconPainter.IconId.Battery ? (float)item.CachedPercent : -1f;
+
+            int isz = Math.Min(_iconSize, Math.Max(8, rc.Height));
+            var irc = new Rectangle(rc.X, rc.Y + (rc.Height - isz) / 2, isz, isz);
+            MetricIconPainter.Draw(g, id, irc, color, fill);
         }
 
         // [新增] 辅助：自定义模式

@@ -146,6 +146,7 @@
     "__Comment_Page2__": "--- 2. Taskbar ---",
     "TaskbarSettings": "Barra Tareas",
     "TaskbarShow": "Mostrar",
+    "TaskbarIcon": "Modo de iconos (reemplaza etiquetas)",
     "TaskbarSingleLine": "Una línea",
     "TaskbarHoverShowAll": "Detalles al pasar",
     "TaskbarStyle": "Estilo",

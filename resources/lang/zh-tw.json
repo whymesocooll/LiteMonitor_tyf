@@ -143,6 +143,7 @@
     "__Comment_Page2__": "--- 2. 工作列設定 (TaskbarPage) ---",
     "TaskbarSettings": "工作列設定",
     "TaskbarShow": "工作列顯示",
+    "TaskbarIcon": "圖示模式 (取代文字標籤)",
     "TaskbarSingleLine": "單行顯示",
     "TaskbarHoverShowAll": "滑鼠懸停顯示詳情",
     "TaskbarStyle": "工作列樣式",

@@ -146,6 +146,7 @@
     "__Comment_Page2__": "--- 2. Taskbar ---",
     "TaskbarSettings": "Панель задач",
     "TaskbarShow": "Показывать",
+    "TaskbarIcon": "Значки вместо текстовых меток",
     "TaskbarSingleLine": "Одна строка",
     "TaskbarHoverShowAll": "Детали при наведении",
     "TaskbarStyle": "Стиль",

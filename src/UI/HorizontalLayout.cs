@@ -160,6 +160,24 @@ namespace LiteMonitor
 
             float dpi = _dpiScale;
 
+            // ★★★ [新增] 任务栏图标模式：列宽 = 图标 + 间距 + 数值（与 TaskbarRenderer 绘制共用尺寸公式） ★★★
+            if (_mode == LayoutMode.Taskbar && _settings.TaskbarUseIcons)
+            {
+                var fs = s.Bold ? FontStyle.Bold : FontStyle.Regular;
+                using var f = new Font(s.Font, s.Size, fs);
+                int iconPx = MetricIconPainter.IconSizeFor(f);
+                int paddingX = (int)Math.Round(s.Inner * dpi);
+
+                // 使用样本值（数字归零）测量，保证数值跳动时列宽稳定不抖
+                string sample = GenerateSampleText(item);
+                int wValue = string.IsNullOrEmpty(sample)
+                    ? 0
+                    : TextRenderer.MeasureText(g, sample, f,
+                        new Size(int.MaxValue, int.MaxValue), TextFormatFlags.NoPadding).Width;
+
+                return iconPx + paddingX + wValue;
+            }
+
             // [通用逻辑] 如果隐藏标签 (ShortLabel 为空 或 " ")，则只计算文本宽
             if (string.IsNullOrEmpty(item.ShortLabel) || item.ShortLabel == " ")
             {

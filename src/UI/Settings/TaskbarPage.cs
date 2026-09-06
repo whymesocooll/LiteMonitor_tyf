@@ -111,8 +111,12 @@ namespace LiteMonitor.src.UI.SettingsPage
                 () => (Config?.TaskbarPresetStyle ?? 1) == 1 ? 0 : 1,
                 idx => { if (Config != null) Config.TaskbarPresetStyle = (idx == 0) ? 1 : 0; }
             );
-            _styleCombo = combo; 
+            _styleCombo = combo;
             _styleCombo.Enabled = !(Config?.TaskbarCustomLayout ?? false);
+
+            group.AddToggle(this, "Menu.TaskbarIcon",
+                () => Config?.TaskbarUseIcons ?? true,
+                v => { if (Config != null) Config.TaskbarUseIcons = v; });
 
             group.AddToggle(this, "Menu.TaskbarSingleLine", () => Config?.TaskbarSingleLine ?? false, v => { if(Config!=null) Config.TaskbarSingleLine = v; });
             group.AddToggle(this, "Menu.TaskbarHoverShowAll", () => Config?.TaskbarHoverShowAll ?? false, v => { if (Config != null) Config.TaskbarHoverShowAll = v; });

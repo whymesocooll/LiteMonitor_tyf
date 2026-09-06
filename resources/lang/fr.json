@@ -147,6 +147,7 @@
     "__Comment_Page2__": "--- 2. Barre Tâches ---",
     "TaskbarSettings": "Barre Tâches",
     "TaskbarShow": "Afficher",
+    "TaskbarIcon": "Mode icônes (remplace les libellés)",
     "TaskbarSingleLine": "Une ligne",
     "TaskbarHoverShowAll": "Détails au survol",
     "TaskbarStyle": "Style",

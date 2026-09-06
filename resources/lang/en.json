@@ -148,6 +148,7 @@
     "__Comment_Page2__": "--- 2. Taskbar ---",
     "TaskbarSettings": "Taskbar",
     "TaskbarShow": "Show Taskbar",
+    "TaskbarIcon": "Icon mode (replace text labels)",
     "TaskbarSingleLine": "Single Line",
     "TaskbarHoverShowAll": "Hover Details",
     "TaskbarStyle": "Style",

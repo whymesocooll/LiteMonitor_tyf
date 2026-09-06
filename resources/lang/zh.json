@@ -148,6 +148,7 @@
     "__Comment_Page2__": "--- 2. 任务栏设置 (TaskbarPage) ---",
     "TaskbarSettings": "任务栏设置",
     "TaskbarShow": "任务栏显示",
+    "TaskbarIcon": "图标模式 (替代文字标签)",
     "TaskbarSingleLine": "单行显示",
     "TaskbarHoverShowAll": "鼠标悬停显示详情",
     "TaskbarStyle": "任务栏样式",

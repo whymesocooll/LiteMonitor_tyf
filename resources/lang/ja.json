@@ -147,6 +147,7 @@
     "__Comment_Page2__": "--- 2. タスクバー ---",
     "TaskbarSettings": "タスクバー",
     "TaskbarShow": "タスクバー表示",
+    "TaskbarIcon": "アイコンモード (ラベル置き換え)",
     "TaskbarSingleLine": "一行表示",
     "TaskbarHoverShowAll": "ホバーで詳細表示",
     "TaskbarStyle": "スタイル",

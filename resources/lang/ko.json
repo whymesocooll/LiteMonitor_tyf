@@ -146,6 +146,7 @@
     "__Comment_Page2__": "--- 2. Taskbar ---",
     "TaskbarSettings": "작업 표시줄",
     "TaskbarShow": "표시 켜기",
+    "TaskbarIcon": "아이콘 모드 (텍스트 레이블 대체)",
     "TaskbarSingleLine": "한 줄 표시",
     "TaskbarHoverShowAll": "마우스 오버 상세",
     "TaskbarStyle": "스타일",
